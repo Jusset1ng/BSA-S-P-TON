@@ -1,0 +1,67 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "BSA Marketplace — Agent IA x402",
+  description:
+    "Marketplace Web2 pilotée par IA avec paiements x402 sur TON blockchain",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="fr">
+      <body style={{ margin: 0, padding: 0 }}>{children}</body>
+    </html>
+  );
+}
