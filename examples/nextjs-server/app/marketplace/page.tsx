@@ -12,7 +12,7 @@ interface Product {
     emoji: string;
     name: string;
     category: string;
-    price: number; // in BSA USD
+    price: number; // in TON
     desc: string;
     seller: string;
 }
@@ -239,8 +239,12 @@ export default function MarketplacePage() {
             setTxResult(data);
             setPurchasedIds((prev) => new Set([...prev, selectedProduct.id]));
 
-            // Refresh wallet balance
-            fetchWallet();
+            // Update balance locally immediately (don't wait for blockchain)
+            setWallet((prev) => {
+                if (!prev) return prev;
+                const newBalance = (parseFloat(prev.balance) - selectedProduct.price).toFixed(2);
+                return { ...prev, balance: newBalance };
+            });
         } catch (e: any) {
             setPaymentStep("error");
             setErrorMsg(e.message || "An unexpected error occurred");
@@ -279,7 +283,7 @@ export default function MarketplacePage() {
                             <div>
                                 <div className="mp-wallet-addr">{wallet.shortAddress}</div>
                                 <div className="mp-wallet-bal">
-                                    {wallet.balance} <span>BSA USD</span>
+                                    {wallet.balance} <span>TON</span>
                                 </div>
                             </div>
                         </div>
@@ -352,7 +356,7 @@ export default function MarketplacePage() {
                         {categoryEmojis[cat]} {cat.charAt(0).toUpperCase() + cat.slice(1)}
                     </button>
                 ))}
-                <div className="mp-price-hint">BSA USD · TON Testnet</div>
+                <div className="mp-price-hint">TON · TON Testnet</div>
             </div>
 
             {/* PRODUCTS GRID */}
@@ -374,7 +378,7 @@ export default function MarketplacePage() {
                                 <div className="mp-card-footer">
                                     <div className="mp-card-price">
                                         {p.price.toFixed(2)}
-                                        <span className="mp-currency">BSA USD</span>
+                                        <span className="mp-currency">TON</span>
                                     </div>
                                     {purchased ? (
                                         <span className="mp-purchased-label">✓ Purchased</span>
@@ -420,14 +424,14 @@ export default function MarketplacePage() {
                                         </div>
                                         <div className="mp-pay-amount">
                                             <div className="mp-amount-val">{selectedProduct.price.toFixed(2)}</div>
-                                            <div className="mp-amount-cur">BSA USD</div>
+                                            <div className="mp-amount-cur">TON</div>
                                         </div>
                                     </div>
 
                                     {/* Wallet balance */}
                                     <div className="mp-pay-balance">
                                         <span>Your balance</span>
-                                        <strong>{wallet?.balance || "—"} BSA USD</strong>
+                                        <strong>{wallet?.balance || "—"} TON</strong>
                                     </div>
 
                                     {/* Steps */}
@@ -465,7 +469,7 @@ export default function MarketplacePage() {
                                     {/* Action button */}
                                     {paymentStep === "idle" || paymentStep === "error" ? (
                                         <button className="mp-btn-pay" onClick={confirmPurchase}>
-                                            🔐 Confirm with Passkey — {selectedProduct.price.toFixed(2)} BSA USD
+                                            🔐 Confirm with Passkey — {selectedProduct.price.toFixed(2)} TON
                                         </button>
                                     ) : (
                                         <button className="mp-btn-pay mp-btn-processing" disabled>
@@ -501,7 +505,7 @@ export default function MarketplacePage() {
 
                                     <div className="mp-pay-balance" style={{ width: "100%", marginTop: "8px" }}>
                                         <span>New balance</span>
-                                        <strong style={{ color: "#0098EA" }}>{wallet?.balance || "—"} BSA USD</strong>
+                                        <strong style={{ color: "#0098EA" }}>{wallet?.balance || "—"} TON</strong>
                                     </div>
 
                                     <button className="mp-btn-close" onClick={closeModal}>
@@ -516,7 +520,7 @@ export default function MarketplacePage() {
 
             {/* FOOTER */}
             <footer className="mp-footer">
-                BSA x TON Hackathon · x402 Protocol · Apple Passkeys · BSA USD on TON Testnet
+                BSA x TON Hackathon · x402 Protocol · Apple Passkeys · TON on TON Testnet
                 <br />
                 <span style={{ opacity: 0.5, fontSize: "0.75rem" }}>
                     Custodial wallet demo — Passkey guards access, server signs BOC
