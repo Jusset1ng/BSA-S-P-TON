@@ -1,0 +1,1118 @@
+# ============================================
+# TON x402 Marketplace - Environment Variables
+# ============================================
+
+# --- AI Agent (Buyer) - Burner Wallet ---
+# Mnemonic 24 mots du portefeuille délégué de l'agent IA
+# Générez-le via: tonkeeper ou wallet CLI
+WALLET_MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+# --- Marketplace (Seller) ---
+# Adresse TON du vendeur qui reçoit les paiements
+SELLER_ADDRESS="EQD__________VOTRE_ADRESSE_VENDEUR__________"
+
+# --- Jetton BSA USD (Testnet) ---
+# Adresse du contrat master du jeton BSA USD sur le testnet TON
+JETTON_MASTER_ADDRESS="EQD__________BSA_USD_JETTON_MASTER__________"
+
+# --- Facilitateur x402 ---
+# URL du service facilitateur qui vérifie et règle les paiements on-chain
+FACILITATOR_URL="https://facilitator.ton-x402.example.com"
+
+# --- TON Network ---
+# Endpoint RPC du testnet TON
+TON_ENDPOINT="https://testnet.toncenter.com/api/v2/jsonRPC"
+TON_API_KEY="your-toncenter-api-key"
+TON_NETWORK="testnet"
+
+# --- Anthropic (Agent IA) ---
+ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# --- App ---
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /**
+ * app/api/buy-item/route.ts
+ *
+ * Route marketplace protégée par le protocole x402.
+ * Quand un client appelle cette route sans header de paiement valide,
+ * le middleware retourne HTTP 402 avec les exigences de paiement.
+ * Une fois le paiement vérifié par le facilitateur, la logique métier s'exécute.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { paymentGate } from "@ton-x402/middleware";
+import { TonFacilitatorClient } from "@ton-x402/facilitator";
+import { Address } from "@ton/core";
+
+// --- Configuration ---
+const SELLER_ADDRESS = process.env.SELLER_ADDRESS!;
+const JETTON_MASTER_ADDRESS = process.env.JETTON_MASTER_ADDRESS!;
+const FACILITATOR_URL = process.env.FACILITATOR_URL!;
+const TON_NETWORK = process.env.TON_NETWORK || "testnet";
+
+// Catalogue simulé de la marketplace
+const CATALOG: Record<
+  string,
+  { name: string; description: string; priceNano: string }
+> = {
+  "tshirt-black": {
+    name: "T-Shirt Noir BSA",
+    description: "T-shirt premium noir avec logo BSA brodé",
+    priceNano: "1000000000", // 1 BSA USD (9 decimals)
+  },
+  "hoodie-white": {
+    name: "Hoodie Blanc BSA",
+    description: "Sweat à capuche blanc édition limitée",
+    priceNano: "2500000000", // 2.5 BSA USD
+  },
+  "cap-blue": {
+    name: "Casquette Bleue BSA",
+    description: "Casquette ajustable bleue",
+    priceNano: "500000000", // 0.5 BSA USD
+  },
+};
+
+// Initialise le client facilitateur pour vérifier/régler les paiements
+const facilitator = new TonFacilitatorClient({
+  url: FACILITATOR_URL,
+  network: TON_NETWORK,
+});
+
+/**
+ * POST /api/buy-item
+ *
+ * Body attendu: { itemId: string, quantity?: number }
+ *
+ * Flow:
+ * 1. paymentGate intercepte la requête
+ * 2. Si pas de header X-PAYMENT → retourne 402 avec PaymentRequirements
+ * 3. Si header présent → vérifie via facilitateur → exécute la logique
+ */
+export async function POST(request: NextRequest) {
+  // Parse le body pour déterminer l'article et le prix
+  let body: { itemId?: string; quantity?: number };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Corps de requête JSON invalide" },
+      { status: 400 }
+    );
+  }
+
+  const itemId = body.itemId || "tshirt-black";
+  const quantity = body.quantity || 1;
+  const item = CATALOG[itemId];
+
+  if (!item) {
+    return NextResponse.json(
+      {
+        error: "Article non trouvé",
+        availableItems: Object.keys(CATALOG),
+      },
+      { status: 404 }
+    );
+  }
+
+  // Calcule le prix total
+  const totalPriceNano = (BigInt(item.priceNano) * BigInt(quantity)).toString();
+
+  // --- Payment Gate x402 ---
+  // Cette fonction vérifie si le paiement est présent et valide.
+  // Si non, elle retourne automatiquement une réponse 402.
+  const paymentResult = await paymentGate(request, {
+    facilitator,
+    payTo: Address.parse(SELLER_ADDRESS),
+    amount: totalPriceNano,
+    jettonMaster: Address.parse(JETTON_MASTER_ADDRESS),
+    network: TON_NETWORK,
+    description: `Achat: ${quantity}x ${item.name}`,
+  });
+
+  // Si paymentGate retourne une Response, c'est un 402 → on la propage
+  if (paymentResult instanceof Response) {
+    return paymentResult;
+  }
+
+  // --- Paiement vérifié ! Logique métier ---
+  const { txHash, payer } = paymentResult;
+
+  // Génère un ID de commande unique
+  const orderId = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // Simule le traitement de la commande
+  const receipt = {
+    success: true,
+    orderId,
+    item: {
+      id: itemId,
+      name: item.name,
+      description: item.description,
+      quantity,
+    },
+    payment: {
+      amount: totalPriceNano,
+      jettonMaster: JETTON_MASTER_ADDRESS,
+      txHash,
+      payer,
+      network: TON_NETWORK,
+    },
+    message: `Commande confirmée ! Votre ${item.name} sera expédié sous 3-5 jours.`,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log(`[Marketplace] Commande ${orderId} confirmée — tx: ${txHash}`);
+
+  return NextResponse.json(receipt, {
+    status: 200,
+    headers: {
+      "X-Order-Id": orderId,
+    },
+  });
+}
+
+/**
+ * GET /api/buy-item
+ * Retourne le catalogue (non protégé)
+ */
+export async function GET() {
+  return NextResponse.json({
+    catalog: Object.entries(CATALOG).map(([id, item]) => ({
+      id,
+      ...item,
+      priceFormatted: `${Number(BigInt(item.priceNano)) / 1e9} BSA USD`,
+    })),
+    acceptedToken: {
+      name: "BSA USD",
+      jettonMaster: JETTON_MASTER_ADDRESS,
+      network: TON_NETWORK,
+    },
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * app/api/agent/route.ts
+ *
+ * Route de l'agent IA qui utilise un Burner Wallet pour acheter
+ * des articles via le protocole x402 sur la blockchain TON.
+ *
+ * Utilise l'Anthropic API directement (compatible AI SDK pattern).
+ * L'agent dispose d'un outil `buy_item_for_user` qui :
+ *   1. Initialise le Burner Wallet depuis WALLET_MNEMONIC
+ *   2. Appelle /api/buy-item via x402Fetch (gestion auto du 402)
+ *   3. Retourne le reçu avec le txHash
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { mnemonicToPrivateKey } from "@ton/crypto";
+import { WalletContractV5R1 } from "@ton/ton";
+import { TonClient } from "@ton/ton";
+import { x402Fetch } from "@ton-x402/client";
+import { Address } from "@ton/core";
+
+// --- Types ---
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ToolCall {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface TextBlock {
+  type: "text";
+  text: string;
+}
+
+type ContentBlock = TextBlock | ToolCall;
+
+// --- Configuration ---
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
+const WALLET_MNEMONIC = process.env.WALLET_MNEMONIC!;
+const TON_ENDPOINT = process.env.TON_ENDPOINT!;
+const TON_API_KEY = process.env.TON_API_KEY || "";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+// --- Initialisation du Burner Wallet (lazy, cached) ---
+let walletCache: {
+  wallet: WalletContractV5R1;
+  keyPair: { publicKey: Buffer; secretKey: Buffer };
+  address: string;
+} | null = null;
+
+async function getBurnerWallet() {
+  if (walletCache) return walletCache;
+
+  const mnemonic = WALLET_MNEMONIC.split(" ");
+  const keyPair = await mnemonicToPrivateKey(mnemonic);
+
+  const wallet = WalletContractV5R1.create({
+    workchain: 0,
+    publicKey: keyPair.publicKey,
+  });
+
+  walletCache = {
+    wallet,
+    keyPair,
+    address: wallet.address.toString(),
+  };
+
+  console.log(`[Agent] Burner Wallet initialisé: ${walletCache.address}`);
+  return walletCache;
+}
+
+// --- TonClient pour les opérations on-chain ---
+function getTonClient() {
+  return new TonClient({
+    endpoint: TON_ENDPOINT,
+    apiKey: TON_API_KEY || undefined,
+  });
+}
+
+// --- Outil: acheter un article pour l'utilisateur ---
+async function executeBuyItem(input: {
+  itemId: string;
+  quantity?: number;
+}): Promise<string> {
+  const { wallet, keyPair } = await getBurnerWallet();
+  const tonClient = getTonClient();
+
+  const itemId = input.itemId || "tshirt-black";
+  const quantity = input.quantity || 1;
+
+  console.log(
+    `[Agent] Achat en cours: ${quantity}x ${itemId} via Burner Wallet`
+  );
+
+  try {
+    // x402Fetch gère automatiquement le flow 402:
+    // 1. Envoie la requête POST à /api/buy-item
+    // 2. Reçoit 402 avec PaymentRequirements
+    // 3. Signe le paiement avec le Burner Wallet
+    // 4. Renvoie la requête avec le header X-PAYMENT
+    // 5. Le serveur vérifie via le facilitateur et retourne le reçu
+    const response = await x402Fetch(`${APP_URL}/api/buy-item`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId, quantity }),
+      // Configuration x402 pour la signature TON
+      wallet: {
+        contract: wallet,
+        keyPair,
+      },
+      tonClient,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return JSON.stringify({
+        success: false,
+        error: `Échec de l'achat (HTTP ${response.status}): ${errorText}`,
+      });
+    }
+
+    // Extraire le txHash du header X-PAYMENT-RESPONSE si disponible
+    const xPaymentResponse = response.headers.get("x-payment-response");
+    const receipt = await response.json();
+
+    return JSON.stringify({
+      success: true,
+      receipt,
+      txHash: receipt.payment?.txHash || xPaymentResponse || "N/A",
+      message: receipt.message,
+    });
+  } catch (error) {
+    console.error("[Agent] Erreur lors de l'achat:", error);
+    return JSON.stringify({
+      success: false,
+      error: `Erreur technique: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+// --- Outil: consulter le catalogue ---
+async function executeGetCatalog(): Promise<string> {
+  try {
+    const response = await fetch(`${APP_URL}/api/buy-item`, {
+      method: "GET",
+    });
+    const catalog = await response.json();
+    return JSON.stringify(catalog);
+  } catch (error) {
+    return JSON.stringify({
+      error: `Impossible de récupérer le catalogue: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+// --- Définition des outils pour Claude ---
+const TOOLS = [
+  {
+    name: "buy_item_for_user",
+    description: `Achète un article de la marketplace pour l'utilisateur en utilisant le Burner Wallet de l'agent IA. 
+Le paiement est effectué en BSA USD sur le testnet TON via le protocole x402. 
+L'outil gère automatiquement la signature et le règlement du paiement.`,
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        itemId: {
+          type: "string",
+          description:
+            "Identifiant de l'article à acheter. Options: 'tshirt-black', 'hoodie-white', 'cap-blue'",
+        },
+        quantity: {
+          type: "number",
+          description: "Quantité à acheter (défaut: 1)",
+        },
+      },
+      required: ["itemId"],
+    },
+  },
+  {
+    name: "get_catalog",
+    description:
+      "Récupère le catalogue complet des articles disponibles à l'achat avec leurs prix en BSA USD.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+];
+
+const SYSTEM_PROMPT = `Tu es un assistant d'achat IA pour la marketplace BSA.
+Tu aides les utilisateurs à acheter des articles en utilisant ton portefeuille délégué (Burner Wallet) sur la blockchain TON.
+
+Articles disponibles:
+- tshirt-black: T-Shirt Noir BSA (1 BSA USD)
+- hoodie-white: Hoodie Blanc BSA (2.5 BSA USD)  
+- cap-blue: Casquette Bleue BSA (0.5 BSA USD)
+
+Quand l'utilisateur demande d'acheter quelque chose:
+1. Identifie l'article demandé
+2. Confirme le choix avec l'utilisateur si ambigu
+3. Utilise l'outil buy_item_for_user pour effectuer l'achat
+4. Rapporte le résultat avec le hash de transaction
+
+Tu dois toujours informer l'utilisateur du prix avant d'acheter.
+Réponds en français.`;
+
+// --- Handler principal ---
+export async function POST(request: NextRequest) {
+  try {
+    const { messages }: { messages: Message[] } = await request.json();
+
+    if (!messages || !Array.isArray(messages)) {
+      return NextResponse.json(
+        { error: "Le champ 'messages' est requis" },
+        { status: 400 }
+      );
+    }
+
+    // Appel initial à Claude avec les outils
+    let claudeMessages = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    let response = await callClaude(claudeMessages);
+    let content: ContentBlock[] = response.content;
+
+    // Boucle de résolution des appels d'outils
+    // Claude peut appeler des outils, on exécute et on renvoie le résultat
+    while (response.stop_reason === "tool_use") {
+      const toolCalls = content.filter(
+        (b): b is ToolCall => b.type === "tool_use"
+      );
+
+      // Ajoute la réponse de Claude (avec tool_use) à l'historique
+      claudeMessages.push({ role: "assistant" as const, content: content as any });
+
+      // Exécute chaque outil et construit les résultats
+      const toolResults = await Promise.all(
+        toolCalls.map(async (tc) => {
+          let result: string;
+
+          switch (tc.name) {
+            case "buy_item_for_user":
+              result = await executeBuyItem(
+                tc.input as { itemId: string; quantity?: number }
+              );
+              break;
+            case "get_catalog":
+              result = await executeGetCatalog();
+              break;
+            default:
+              result = JSON.stringify({ error: `Outil inconnu: ${tc.name}` });
+          }
+
+          return {
+            type: "tool_result" as const,
+            tool_use_id: tc.id,
+            content: result,
+          };
+        })
+      );
+
+      // Renvoie les résultats des outils à Claude
+      claudeMessages.push({ role: "user" as const, content: toolResults as any });
+
+      // Relance Claude avec le contexte mis à jour
+      response = await callClaude(claudeMessages);
+      content = response.content;
+    }
+
+    // Extrait le texte final de la réponse
+    const textBlocks = content.filter(
+      (b): b is TextBlock => b.type === "text"
+    );
+    const finalText = textBlocks.map((b) => b.text).join("\n");
+
+    return NextResponse.json({ response: finalText });
+  } catch (error) {
+    console.error("[Agent] Erreur:", error);
+    return NextResponse.json(
+      {
+        error: "Erreur interne de l'agent",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// --- Appel à l'API Anthropic ---
+async function callClaude(messages: any[]) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      tools: TOOLS,
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Anthropic API error ${res.status}: ${errText}`);
+  }
+
+  return res.json();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * app/page.tsx
+ *
+ * Interface de chat pour interagir avec l'agent IA marketplace.
+ * L'utilisateur tape une demande d'achat, l'agent utilise son
+ * Burner Wallet pour payer via x402 et retourne un reçu.
+ */
+
+"use client";
+
+import { useState, useRef, useEffect, FormEvent } from "react";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export default function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll vers le bas
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, loading]);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || loading) return;
+
+    const userMsg: Message = { role: "user", content: text };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: updated }),
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `Erreur: ${data.error}${data.details ? ` — ${data.details}` : ""}`,
+          },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.response },
+        ]);
+      }
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Erreur réseau: ${err instanceof Error ? err.message : "Connexion impossible"}`,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Suggestions rapides
+  const suggestions = [
+    "Achète-moi le t-shirt noir",
+    "Montre-moi le catalogue",
+    "Je veux 2 casquettes bleues",
+    "Achète le hoodie blanc",
+  ];
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        color: "#e0e0e0",
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          width: "100%",
+          maxWidth: 720,
+          padding: "24px 16px 12px",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: 32, marginBottom: 4 }}>
+          <span role="img" aria-label="robot">🤖</span>{" "}
+          <span role="img" aria-label="diamond">💎</span>
+        </div>
+        <h1
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            margin: 0,
+            background: "linear-gradient(90deg, #00d2ff, #7b2ff7)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          BSA Marketplace Agent
+        </h1>
+        <p
+          style={{
+            fontSize: 13,
+            color: "#888",
+            margin: "4px 0 0",
+          }}
+        >
+          Agent IA autonome &bull; Paiement x402 &bull; TON Testnet &bull; BSA
+          USD
+        </p>
+      </header>
+
+      {/* Chat area */}
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1,
+          width: "100%",
+          maxWidth: 720,
+          overflowY: "auto",
+          padding: "8px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        {/* Welcome */}
+        {messages.length === 0 && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "48px 16px",
+            }}
+          >
+            <p style={{ color: "#aaa", fontSize: 15, marginBottom: 20 }}>
+              Demandez-moi d'acheter un article. Je paierai avec mon portefeuille
+              délégué via le protocole x402.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                justifyContent: "center",
+              }}
+            >
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setInput(s);
+                  }}
+                  style={{
+                    background: "rgba(123, 47, 247, 0.15)",
+                    border: "1px solid rgba(123, 47, 247, 0.3)",
+                    borderRadius: 20,
+                    padding: "8px 16px",
+                    color: "#c4a5ff",
+                    fontSize: 13,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(123, 47, 247, 0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "rgba(123, 47, 247, 0.15)";
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Messages */}
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              justifyContent:
+                msg.role === "user" ? "flex-end" : "flex-start",
+            }}
+          >
+            <div
+              style={{
+                maxWidth: "80%",
+                padding: "12px 16px",
+                borderRadius:
+                  msg.role === "user"
+                    ? "18px 18px 4px 18px"
+                    : "18px 18px 18px 4px",
+                background:
+                  msg.role === "user"
+                    ? "linear-gradient(135deg, #7b2ff7, #5b1fd4)"
+                    : "rgba(255,255,255,0.06)",
+                border:
+                  msg.role === "assistant"
+                    ? "1px solid rgba(255,255,255,0.08)"
+                    : "none",
+                fontSize: 14,
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {msg.role === "assistant" && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#00d2ff",
+                    fontWeight: 600,
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Agent IA
+                </span>
+              )}
+              {formatMessage(msg.content)}
+            </div>
+          </div>
+        ))}
+
+        {/* Loading indicator */}
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <div
+              style={{
+                padding: "12px 16px",
+                borderRadius: "18px 18px 18px 4px",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                fontSize: 14,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "#00d2ff",
+                  fontWeight: 600,
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Agent IA
+              </span>
+              <span style={{ color: "#888" }}>
+                Traitement en cours
+                <LoadingDots />
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 720,
+          padding: "12px 16px 24px",
+        }}
+      >
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: "flex",
+            gap: 8,
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 24,
+            padding: 4,
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ex: Achète-moi le t-shirt noir..."
+            disabled={loading}
+            style={{
+              flex: 1,
+              border: "none",
+              background: "transparent",
+              padding: "12px 16px",
+              fontSize: 14,
+              color: "#e0e0e0",
+              outline: "none",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            style={{
+              background:
+                loading || !input.trim()
+                  ? "rgba(123,47,247,0.3)"
+                  : "linear-gradient(135deg, #7b2ff7, #00d2ff)",
+              border: "none",
+              borderRadius: 20,
+              padding: "10px 20px",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {loading ? "..." : "Envoyer"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// --- Helpers ---
+
+/** Met en gras les textes entre ** et formate les hash de transaction */
+function formatMessage(text: string) {
+  // Détecte les hash de transaction TON (base64url-like, 44+ chars)
+  const parts = text.split(
+    /(\b[A-Za-z0-9_-]{43,}={0,2}\b|`[^`]+`|\*\*[^*]+\*\*)/g
+  );
+
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} style={{ color: "#fff" }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={i}
+          style={{
+            background: "rgba(123,47,247,0.2)",
+            padding: "2px 6px",
+            borderRadius: 4,
+            fontSize: 12,
+            fontFamily: "monospace",
+            color: "#c4a5ff",
+            wordBreak: "break-all",
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+}
+
+function LoadingDots() {
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "" : d + "."));
+    }, 400);
+    return () => clearInterval(id);
+  }, []);
+
+  return <span>{dots}</span>;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "BSA Marketplace — Agent IA x402",
+  description:
+    "Marketplace Web2 pilotée par IA avec paiements x402 sur TON blockchain",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="fr">
+      <body style={{ margin: 0, padding: 0 }}>{children}</body>
+    </html>
+  );
+}
