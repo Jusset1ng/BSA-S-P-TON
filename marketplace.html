@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BSA Marketplace — Powered by x402 & TON</title>
+  <style>
+    :root {
+      --ton: #0098EA;
+      --ton-dark: #006DB3;
+      --bsa: #1E3A5F;
+      --bsa-accent: #2ECC71;
+      --bg: #0B0F1A;
+      --bg2: #111827;
+      --bg3: #1a2235;
+      --card: #161d2f;
+      --border: rgba(255,255,255,0.07);
+      --text: #E8EFF8;
+      --muted: #8896A8;
+      --radius: 16px;
+      --success: #2ECC71;
+      --warning: #F59E0B;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ===== TOP NAV ===== */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 68px;
+      background: rgba(11,15,26,0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .nav-logo .badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .badge {
+      background: var(--ton);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .badge.bsa { background: var(--bsa-accent); color: #0B0F1A; }
+    .badge.x402 { background: #7C3AED; }
+
+    .wallet-widget {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .wallet-widget:hover { border-color: var(--ton); }
+
+    .wallet-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .wallet-addr { font-size: 0.8rem; color: var(--muted); font-family: monospace; }
+    .wallet-bal { font-weight: 700; color: var(--text); font-size: 0.9rem; }
+    .wallet-bal span { color: var(--ton); }
+
+    /* ===== HERO ===== */
+    .hero {
+      background: linear-gradient(135deg, #0B0F1A 0%, #0d1829 50%, #0B0F1A 100%);
+      padding: 60px 32px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -120px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0,152,234,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 .highlight { color: var(--ton); }
+
+    .hero p {
+      color: var(--muted);
+      max-width: 540px;
+      margin: 0 auto 32px;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    .protocol-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin-top: 32px;
+    }
+
+    .flow-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 18px;
+    }
+
+    .flow-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+    }
+
+    .flow-label { font-size: 0.75rem; color: var(--muted); text-align: center; max-width: 80px; }
+    .flow-label strong { color: var(--text); display: block; font-size: 0.8rem; }
+
+    .flow-arrow {
+      color: var(--ton);
+      font-size: 1.2rem;
+      margin-top: -18px;
+    }
+
+    /* ===== FILTER BAR ===== */
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 32px 16px;
+      flex-wrap: wrap;
+    }
+
+    .filters h2 { font-size: 1.2rem; font-weight: 700; margin-right: 8px; }
+
+    .filter-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 7px 16px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--ton);
+      border-color: var(--ton);
+      color: white;
+    }
+
+    .price-range {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    /* ===== PRODUCT GRID ===== */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      padding: 8px 32px 48px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: all 0.25s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .card:hover {
+      border-color: rgba(0,152,234,0.4);
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,152,234,0.15);
+    }
+
+    .card-img {
+      width: 100%; height: 180px;
+      object-fit: cover;
+      background: var(--bg3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 4rem;
+    }
+
+    .card-body { padding: 16px; }
+
+    .card-category {
+      font-size: 0.72rem;
+      color: var(--ton);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .card-name {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-price {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .card-price .currency {
+      font-size: 0.78rem;
+      color: var(--ton);
+      font-weight: 600;
+      margin-left: 3px;
+    }
+
+    .btn-buy {
+      background: var(--ton);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 9px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-buy:hover { background: var(--ton-dark); transform: scale(1.04); }
+
+    .tag-sold {
+      position: absolute;
+      top: 12px; right: 12px;
+      background: rgba(11,15,26,0.85);
+      border: 1px solid var(--success);
+      color: var(--success);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ===== MODAL ===== */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .overlay.show { display: flex; }
+
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 480px;
+      overflow: hidden;
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+
+    .modal-close {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .modal-body { padding: 24px; }
+
+    /* Payment flow steps */
+    .pay-product {
+      display: flex; gap: 16px; align-items: center;
+      margin-bottom: 24px;
+      background: var(--bg3);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .pay-product-emoji { font-size: 2.5rem; }
+    .pay-product-info { flex: 1; }
+    .pay-product-name { font-weight: 700; font-size: 1rem; }
+    .pay-product-seller { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+
+    .pay-amount {
+      text-align: right;
+    }
+
+    .pay-amount .amount { font-size: 1.4rem; font-weight: 800; }
+    .pay-amount .cur { color: var(--ton); font-size: 0.8rem; }
+
+    .pay-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+
+    .pay-step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .pay-step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: var(--bg3);
+      border: 2px solid var(--border);
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: all 0.4s;
+    }
+
+    .step-num.active { border-color: var(--ton); color: var(--ton); background: rgba(0,152,234,0.1); }
+    .step-num.done { border-color: var(--success); background: var(--success); color: white; }
+
+    .step-info { flex: 1; }
+    .step-title { font-size: 0.9rem; font-weight: 600; }
+    .step-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    .step-status {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .step-status.loading {
+      color: var(--ton);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(0,152,234,0.2);
+      border-top-color: var(--ton);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .step-status.ok { color: var(--success); }
+
+    .btn-pay {
+      width: 100%;
+      background: linear-gradient(135deg, var(--ton), var(--ton-dark));
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+
+    .btn-pay:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 8px 24px rgba(0,152,234,0.3); }
+    .btn-pay:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Success state */
+    .success-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 32px 24px;
+      gap: 16px;
+    }
+
+    .success-screen.show { display: flex; }
+
+    .success-icon {
+      width: 80px; height: 80px;
+      background: rgba(46,204,113,0.15);
+      border: 2px solid var(--success);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.3); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .success-title { font-size: 1.4rem; font-weight: 800; }
+    .success-sub { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+
+    .tx-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .tx-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .tx-hash { font-family: monospace; font-size: 0.82rem; color: var(--ton); word-break: break-all; }
+
+    .wallet-after {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      width: 100%;
+      font-size: 0.85rem;
+    }
+
+    .btn-close-success {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-close-success:hover { border-color: var(--ton); color: var(--ton); }
+
+    /* ===== FOOTER ===== */
+    footer {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      border-top: 1px solid var(--border);
+    }
+
+    footer a { color: var(--ton); text-decoration: none; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--bg3);
+      border: 1px solid var(--success);
+      color: var(--success);
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      z-index: 999;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      white-space: nowrap;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Stats bar */
+    .stats {
+      display: flex;
+      gap: 0;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      flex: 1;
+      padding: 16px 24px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+
+    .stat:last-child { border-right: none; }
+    .stat-val { font-size: 1.3rem; font-weight: 800; color: var(--ton); }
+    .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    🛒 BSA Marketplace
+    <div class="badges">
+      <span class="badge bsa">BSA</span>
+      <span class="badge">TON</span>
+      <span class="badge x402">x402</span>
+    </div>
+  </div>
+  <div class="wallet-widget" onclick="showWalletInfo()">
+    <div class="wallet-dot"></div>
+    <div>
+      <div class="wallet-addr" id="nav-addr">EQBx7...4f2A</div>
+      <div class="wallet-bal"><span id="nav-bal">47.25</span> <span style="color:var(--ton)">BSA USD</span></div>
+    </div>
+    <span style="font-size:1.2rem">👛</span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Buy anything, pay with your<br><span class="highlight">TON Wallet</span></h1>
+  <p>The first marketplace powered by the <strong>x402 protocol</strong>. No card needed — just your TON wallet and BSA USD stablecoin.</p>
+
+  <div class="protocol-flow">
+    <div class="flow-step">
+      <div class="flow-icon">🛍️</div>
+      <div class="flow-label"><strong>Browse</strong>Pick a product</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-icon">💳</div>
+      <div class="flow-label"><strong>402 Triggered</strong>Server requests payment</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-icon">✍️</div>
+      <div class="flow-label"><strong>Sign BOC</strong>Wallet signs locally</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-icon">⛓️</div>
+      <div class="flow-label"><strong>Settle</strong>Broadcast on TON</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-icon">📦</div>
+      <div class="flow-label"><strong>Delivered</strong>Item unlocked</div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat">
+    <div class="stat-val" id="stat-tx">142</div>
+    <div class="stat-label">Transactions Today</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val">BSA USD</div>
+    <div class="stat-label">Payment Token</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val">~0.3s</div>
+    <div class="stat-label">Avg Settlement</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val">TON</div>
+    <div class="stat-label">Blockchain</div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters">
+  <h2>Products</h2>
+  <button class="filter-btn active" onclick="filterProducts('all', this)">All</button>
+  <button class="filter-btn" onclick="filterProducts('tech', this)">⚡ Tech</button>
+  <button class="filter-btn" onclick="filterProducts('fashion', this)">👗 Fashion</button>
+  <button class="filter-btn" onclick="filterProducts('food', this)">🍕 Food</button>
+  <button class="filter-btn" onclick="filterProducts('art', this)">🎨 Art</button>
+  <div class="price-range">Prices in BSA USD · TON Testnet</div>
+</div>
+
+<!-- GRID -->
+<div class="grid" id="product-grid"></div>
+
+<!-- PAYMENT MODAL -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3>💸 Checkout — x402 Protocol</h3>
+      <button class="modal-close" onclick="closeModalForce()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✅ Payment confirmed on TON!</div>
+
+<footer>
+  Built for <a href="https://bsaepfl.ch" target="_blank">BSA x TON Hackathon</a> · x402 Protocol · BSA USD Stablecoin on TON Testnet
+  <br><br>
+  <span style="font-size:0.75rem; opacity:0.5">Demo — All payments are simulated on testnet · No real funds are used</span>
+</footer>
+
+<script>
+  // ===== STATE =====
+  let walletBalance = 47.25;
+  let txCount = 142;
+  let currentProduct = null;
+  let paymentInProgress = false;
+
+  // ===== PRODUCTS =====
+  const products = [
+    { id:1, emoji:'💻', name:'MacBook Air M3 (Refurb)', category:'tech', price:1.50, desc:'Like-new condition, 16GB RAM, 512GB SSD. Verified by BSA Tech.', seller:'TechResale_EPFL', sold:false },
+    { id:2, emoji:'🎧', name:'Sony WH-1000XM5', category:'tech', price:0.25, desc:'Premium noise-cancelling headphones. Minor cosmetic scratches only.', seller:'AudioLab_BSA', sold:false },
+    { id:3, emoji:'👟', name:'Nike Air Jordan 1 Mid', category:'fashion', price:0.18, desc:'Size EU 42, worn twice. Box included. Authentic verified.', seller:'Sneakers_Collective', sold:true },
+    { id:4, emoji:'🍕', name:'Pizza Night Bundle (×4)', category:'food', price:0.08, desc:'Claim 4 pizzas from La Grappe d\'Or in Lausanne. Valid 30 days.', seller:'FoodPass_EPFL', sold:false },
+    { id:5, emoji:'🎨', name:'Digital Art Print — "TON Genesis"', category:'art', price:0.05, desc:'Limited edition NFT-backed print, 1/50. Signed by artist.', seller:'CryptoArt_Studio', sold:false },
+    { id:6, emoji:'⌚', name:'Apple Watch Series 9', category:'tech', price:0.35, desc:'45mm Midnight, GPS+Cellular. Excellent condition, full charge cycles.', seller:'WatchMarket_CH', sold:false },
+    { id:7, emoji:'👗', name:'Levi\'s 501 Original Jeans', category:'fashion', price:0.06, desc:'W30 L32, vintage wash. Worn 3 times. Ships from Lausanne.', seller:'Vintage_EPFL', sold:false },
+    { id:8, emoji:'☕', name:'Coffee Subscription (1 month)', category:'food', price:0.12, desc:'Daily espresso at EPFL BC coffee shop. 20 drinks prepaid.', seller:'CampusCoffee', sold:false },
+    { id:9, emoji:'🖼️', name:'Banksy Print "Balloon Girl"', category:'art', price:0.22, desc:'High-quality reproduction, A2 framed. New, never hung.', seller:'ArtHouse_Geneva', sold:false },
+    { id:10, emoji:'📱', name:'iPhone 15 Pro — 256GB', category:'tech', price:0.95, desc:'Natural Titanium, 100% battery health. Apple warranty valid.', seller:'iResale_Suisse', sold:false },
+    { id:11, emoji:'🧴', name:'Luxury Skincare Set', category:'fashion', price:0.09, desc:'La Mer moisturizer + serum. Sealed, gift set.', seller:'BeautyVault_BSA', sold:false },
+    { id:12, emoji:'🍣', name:'Sushi Date Voucher', category:'food', price:0.15, desc:'2-person dinner at Matsuri Geneva. Includes drinks. Valid 60 days.', seller:'FineFood_Pass', sold:false },
+  ];
+
+  let currentFilter = 'all';
+
+  function renderProducts(filter) {
+    const grid = document.getElementById('product-grid');
+    const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
+    grid.innerHTML = filtered.map(p => `
+      <div class="card" onclick="openBuy(${p.id})" data-cat="${p.category}">
+        <div class="card-img" style="background: linear-gradient(135deg, var(--bg3), var(--bg2))">${p.emoji}</div>
+        ${p.sold ? '<div class="tag-sold">✓ PURCHASED</div>' : ''}
+        <div class="card-body">
+          <div class="card-category">${p.category}</div>
+          <div class="card-name">${p.name}</div>
+          <div class="card-desc">${p.desc}</div>
+          <div class="card-footer">
+            <div class="card-price">${p.price.toFixed(2)}<span class="currency">BSA USD</span></div>
+            ${p.sold
+              ? '<span style="font-size:0.82rem; color:var(--success)">✓ Purchased</span>'
+              : `<button class="btn-buy" onclick="event.stopPropagation(); openBuy(${p.id})">Buy Now</button>`
+            }
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function filterProducts(cat, btn) {
+    currentFilter = cat;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderProducts(cat);
+  }
+
+  // ===== MODAL =====
+  function openBuy(id) {
+    const p = products.find(x => x.id === id);
+    if (!p) return;
+    if (p.sold) { showToast('You already purchased this!', '#F59E0B'); return; }
+    currentProduct = p;
+    paymentInProgress = false;
+
+    const modal = document.getElementById('modal-body');
+    modal.innerHTML = getPaymentForm(p);
+
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function getPaymentForm(p) {
+    const newBal = (walletBalance - p.price).toFixed(2);
+    const hasEnough = walletBalance >= p.price;
+    return `
+      <div class="pay-product">
+        <div class="pay-product-emoji">${p.emoji}</div>
+        <div class="pay-product-info">
+          <div class="pay-product-name">${p.name}</div>
+          <div class="pay-product-seller">Sold by ${p.seller}</div>
+        </div>
+        <div class="pay-amount">
+          <div class="amount">${p.price.toFixed(2)}</div>
+          <div class="cur">BSA USD</div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg3); border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:0.83rem; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--muted)">Your wallet balance</span>
+        <strong style="color: ${hasEnough ? 'var(--text)' : '#EF4444'}">${walletBalance.toFixed(2)} BSA USD</strong>
+      </div>
+
+      ${!hasEnough ? `<div style="color:#EF4444; text-align:center; margin-bottom:16px; font-size:0.88rem; background:rgba(239,68,68,0.1); padding:10px; border-radius:10px;">⚠️ Insufficient balance. Visit the <a href="https://ton-x402-nextjs-server-dyvpwctew-hliosones-projects.vercel.app/" target="_blank" style="color:var(--ton)">BSA USD Faucet</a></div>` : ''}
+
+      <div class="pay-steps" id="pay-steps">
+        <div class="pay-step">
+          <div class="step-num" id="s1">1</div>
+          <div class="step-info">
+            <div class="step-title">HTTP 402 — Payment Required</div>
+            <div class="step-sub">Server responds with PAYMENT-REQUIRED header</div>
+          </div>
+          <div class="step-status" id="s1-status">Pending</div>
+        </div>
+        <div class="pay-step">
+          <div class="step-num" id="s2">2</div>
+          <div class="step-info">
+            <div class="step-title">Sign BOC Locally</div>
+            <div class="step-sub">Wallet signs transaction — no broadcast yet</div>
+          </div>
+          <div class="step-status" id="s2-status">Waiting</div>
+        </div>
+        <div class="pay-step">
+          <div class="step-num" id="s3">3</div>
+          <div class="step-info">
+            <div class="step-title">Facilitator Verify</div>
+            <div class="step-sub">Offline signature check (fast, no RPC)</div>
+          </div>
+          <div class="step-status" id="s3-status">Waiting</div>
+        </div>
+        <div class="pay-step">
+          <div class="step-num" id="s4">4</div>
+          <div class="step-info">
+            <div class="step-title">Settle On-Chain</div>
+            <div class="step-sub">Broadcast BOC to TON, wait for confirmation</div>
+          </div>
+          <div class="step-status" id="s4-status">Waiting</div>
+        </div>
+      </div>
+
+      <button class="btn-pay" id="btn-pay" onclick="startPayment()" ${!hasEnough ? 'disabled' : ''}>
+        <span>👛</span> Pay ${p.price.toFixed(2)} BSA USD
+      </button>
+    `;
+  }
+
+  async function startPayment() {
+    if (paymentInProgress) return;
+    paymentInProgress = true;
+    const btn = document.getElementById('btn-pay');
+    btn.disabled = true;
+
+    // Step 1 — 402
+    setStep(1, 'active', 'loading', '⏳ Triggering...');
+    await delay(600);
+    setStep(1, 'done', 'ok', '✓ 402 Received');
+
+    // Step 2 — Sign
+    setStep(2, 'active', 'loading', '🔐 Signing...');
+    await delay(900);
+    setStep(2, 'done', 'ok', '✓ Signed');
+
+    // Step 3 — Verify
+    setStep(3, 'active', 'loading', '🔍 Verifying...');
+    await delay(700);
+    setStep(3, 'done', 'ok', '✓ Valid');
+
+    // Step 4 — Settle
+    setStep(4, 'active', 'loading', '⛓️ Broadcasting...');
+    await delay(1200);
+    setStep(4, 'done', 'ok', '✓ Confirmed');
+
+    await delay(300);
+    showSuccess();
+  }
+
+  function setStep(n, numClass, statusClass, statusText) {
+    const num = document.getElementById('s' + n);
+    const status = document.getElementById('s' + n + '-status');
+    if (!num || !status) return;
+
+    num.className = 'step-num ' + numClass;
+    if (numClass === 'done') num.textContent = '✓';
+
+    if (statusClass === 'loading') {
+      status.className = 'step-status loading';
+      status.innerHTML = `<span class="spinner"></span> ${statusText}`;
+    } else {
+      status.className = 'step-status ' + statusClass;
+      status.textContent = statusText;
+    }
+  }
+
+  function showSuccess() {
+    const p = currentProduct;
+    walletBalance = parseFloat((walletBalance - p.price).toFixed(2));
+    txCount++;
+    p.sold = true;
+
+    // Update nav
+    document.getElementById('nav-bal').textContent = walletBalance.toFixed(2);
+    document.getElementById('stat-tx').textContent = txCount;
+
+    // Fake TX hash
+    const txHash = Array.from({length: 64}, () => '0123456789abcdef'[Math.floor(Math.random()*16)]).join('');
+
+    document.getElementById('modal-body').innerHTML = `
+      <div class="success-screen show">
+        <div class="success-icon">✅</div>
+        <div class="success-title">Payment Confirmed!</div>
+        <div class="success-sub">Your purchase of <strong>${p.name}</strong> is complete.<br>Transaction settled on TON testnet.</div>
+        <div class="tx-box">
+          <div class="tx-label">TX Hash</div>
+          <div class="tx-hash">${txHash}</div>
+        </div>
+        <div class="wallet-after">
+          <span style="color:var(--muted)">New wallet balance</span>
+          <strong style="color:var(--ton)">${walletBalance.toFixed(2)} BSA USD</strong>
+        </div>
+        <button class="btn-close-success" onclick="closeModalForce()">🎉 Back to Marketplace</button>
+      </div>
+    `;
+
+    showToast('✅ Paid ' + p.price.toFixed(2) + ' BSA USD on TON!');
+    renderProducts(currentFilter);
+  }
+
+  function showWalletInfo() {
+    // Small toast showing wallet info
+    showToast('👛 EQBx7...4f2A · ' + walletBalance.toFixed(2) + ' BSA USD · TON Testnet', '#0098EA');
+  }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function closeModal(e) {
+    if (e.target === document.getElementById('overlay') && !paymentInProgress) {
+      closeModalForce();
+    }
+  }
+
+  function closeModalForce() {
+    document.getElementById('overlay').classList.remove('show');
+    paymentInProgress = false;
+    currentProduct = null;
+  }
+
+  function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    if (color) t.style.borderColor = color;
+    if (color) t.style.color = color;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ===== INIT =====
+  renderProducts('all');
+
+  // Animate tx counter
+  setInterval(() => {
+    if (Math.random() < 0.3) {
+      txCount++;
+      document.getElementById('stat-tx').textContent = txCount;
+    }
+  }, 4000);
+</script>
+</body>
+</html>
