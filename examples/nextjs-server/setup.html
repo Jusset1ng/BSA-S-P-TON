@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration de l'Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white flex items-center justify-center min-h-screen font-sans text-gray-900 m-0">
+
+    <div class="max-w-md w-full border border-gray-300 shadow-sm bg-white p-8 rounded-sm">
+        
+        <div class="text-center mb-10">
+            <h1 class="text-2xl font-semibold tracking-tight">Configuration de l'Agent</h1>
+            <p class="text-gray-500 mt-2 text-sm">Initialisation sécurisée pour la démonstration.</p>
+        </div>
+
+        <div class="space-y-10 text-center">
+
+            <div>
+                <h2 class="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">1. Portefeuille Autonome</h2>
+                
+                <button id="btnGenerate" class="w-full bg-black text-white py-3 text-sm font-medium hover:bg-gray-800 transition-colors rounded-sm">
+                    Générer le Burner Wallet
+                </button>
+
+                <div id="walletInfo" class="hidden border border-gray-200 bg-gray-50 p-4 rounded-sm flex flex-col items-center">
+                    <p class="text-sm font-medium text-gray-900 mb-1">Portefeuille créé et financé</p>
+                    <p class="font-mono text-xs text-gray-500 break-all mb-3 text-center">0QBurnerWalletTestnetDemoAddress123...</p>
+                    <p class="text-sm font-semibold text-black">Solde : 2.50 TON</p>
+                </div>
+            </div>
+
+            <div id="limitSection" class="opacity-30 pointer-events-none transition-opacity duration-500">
+                <h2 class="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">2. Plafond de Sécurité</h2>
+                <div class="border border-gray-200 bg-gray-50 p-6 rounded-sm flex flex-col items-center">
+                    <div class="flex flex-col items-center gap-5 w-full">
+                        <span id="limitDisplay" class="font-mono font-medium text-2xl text-black text-center">
+                            1.0 TON
+                        </span>
+                        <input id="limitRange" type="range" min="0.1" max="5" step="0.1" value="1.0" class="w-full h-1 bg-gray-300 appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-gray-200">
+            <button id="btnLaunch" disabled class="w-full py-3 text-sm font-medium uppercase tracking-wider transition-colors rounded-sm bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-200">
+                Lancer la Démo
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // Récupération des éléments du DOM
+        const btnGenerate = document.getElementById('btnGenerate');
+        const walletInfo = document.getElementById('walletInfo');
+        const limitSection = document.getElementById('limitSection');
+        const limitRange = document.getElementById('limitRange');
+        const limitDisplay = document.getElementById('limitDisplay');
+        const btnLaunch = document.getElementById('btnLaunch');
+
+        // Action 1 : Générer le portefeuille
+        btnGenerate.addEventListener('click', () => {
+            // Cacher le bouton, afficher les infos du wallet
+            btnGenerate.classList.add('hidden');
+            walletInfo.classList.remove('hidden');
+
+            // Activer la section limite
+            limitSection.classList.remove('opacity-30', 'pointer-events-none');
+            limitSection.classList.add('opacity-100');
+
+            // Activer le bouton de lancement
+            btnLaunch.disabled = false;
+            btnLaunch.className = "w-full py-3 text-sm font-medium uppercase tracking-wider transition-colors rounded-sm bg-blue-600 text-white hover:bg-blue-700 cursor-pointer";
+        });
+
+        // Action 2 : Mise à jour du slider
+        limitRange.addEventListener('input', (e) => {
+            // Formatage pour toujours afficher 1 décimale (ex: 1.0)
+            const value = parseFloat(e.target.value).toFixed(1);
+            limitDisplay.textContent = `${value} TON`;
+        });
+
+        // Action 3 : Lancer la démo
+        btnLaunch.addEventListener('click', () => {
+            btnLaunch.textContent = "Connexion en cours...";
+            btnLaunch.classList.add('opacity-80', 'cursor-wait');
+            
+            // Redirection vers ton serveur Next.js local après un court délai
+            setTimeout(() => {
+                window.location.href = "http://localhost:3000/";
+            }, 800);
+        });
+    </script>
+</body>
+</html>
